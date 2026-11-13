@@ -1,0 +1,39 @@
+name: Sürüm yayınla
+
+# derleme/ZETX-FORMATTER.exe güncellenip main dalına gönderildiğinde
+# Releases sayfasında yeni sürüm oluşturulur. Sürüm numarası kaynak/MainForm.cs
+# içindeki Version değerinden okunur (ör. "1.2.0" -> v1.2.0).
+# Aynı sürüm tekrar gönderilirse mevcut sürümdeki dosyalar güncellenir.
+on:
+  push:
+    branches: [main]
+    paths: ['derleme/ZETX-FORMATTER.exe', '.github/SURUM_NOTU.md', '.github/workflows/surum.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  yayinla:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dosyaları hazırla
+        run: |
+          cp derleme/ZETX-FORMATTER.exe ZETX-FORMATTER.exe
+          zip -j ZETX-FORMATTER.zip ZETX-FORMATTER.exe
+
+      - name: Releases sayfasına yükle
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v$(grep -oP 'Version\s*=\s*"\K[^"]+' kaynak/MainForm.cs | head -1)"
+          echo "Sürüm: $TAG"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" ZETX-FORMATTER.exe ZETX-FORMATTER.zip --clobber
+          else
+            gh release create "$TAG" ZETX-FORMATTER.exe ZETX-FORMATTER.zip \
+              --title "ZETX FORMATTER $TAG" \
+              --notes-file .github/SURUM_NOTU.md --target "${GITHUB_SHA}" --latest
+          fi
